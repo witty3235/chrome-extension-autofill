@@ -1,93 +1,212 @@
-// Content script for lever.co EEO auto-fill
-// This script runs on lever.co job posting pages and detects EEO form sections
+// Content script for job application auto-fill
+// Supports multiple job posting websites with extensible architecture
 
 (function() {
   'use strict';
 
-  // Configuration for EEO field mappings
-  // Lever uses various selectors, so we need to handle multiple patterns
-  const EEO_FIELD_MAPPINGS = {
-    // Gender field selectors
-    gender: [
-      'input[name="gender"][value=""]',
-      'select[name="gender"]',
-      'select[data-eeo="gender"]',
-      'select[id*="gender"]',
-      '[data-test="gender"] select',
-      '.eeo-gender select',
-      'select.eeo-field[name*="gender"]'
-    ],
-    // Race/Ethnicity field selectors
-    race: [
-      'input[name="ethnicity"][value=""]',
-      'select[name="ethnicity"]',
-      'select[data-eeo="ethnicity"]',
-      'select[id*="ethnicity"]',
-      'select[id*="race"]',
-      '[data-test="ethnicity"] select',
-      '.eeo-ethnicity select',
-      'select.eeo-field[name*="ethnicity"]'
-    ],
-    // Veteran status field selectors
-    veteran: [
-      'input[name="veteran"][value=""]',
-      'select[name="veteran"]',
-      'select[data-eeo="veteran"]',
-      'select[id*="veteran"]',
-      '[data-test="veteran"] select',
-      '.eeo-veteran select',
-      'select.eeo-field[name*="veteran"]'
-    ],
-    // Disability status field selectors
-    disability: [
-      'input[name="disability"][value=""]',
-      'select[name="disability"]',
-      'select[data-eeo="disability"]',
-      'select[id*="disability"]',
-      '[data-test="disability"] select',
-      '.eeo-disability select',
-      'select.eeo-field[name*="disability"]'
-    ]
+  // ============================================================================
+  // Website Handlers Registry
+  // ============================================================================
+  // Add new website handlers here following the pattern below
+
+  const websiteHandlers = {
+    // ---------------------------------------------------------------------
+    // Lever.co Handler
+    // ---------------------------------------------------------------------
+    'lever.co': {
+      name: 'Lever',
+      detectForm: function() {
+        const pageText = document.body.textContent.toLowerCase();
+        
+        // Check if this is an application page
+        const isApplicationPage = window.location.href.includes('/apply') ||
+                                   document.querySelector('form[data-application]') ||
+                                   document.querySelector('.application-form');
+        
+        if (!isApplicationPage) return null;
+        
+        // Look for forms
+        const forms = document.querySelectorAll('form');
+        for (const form of forms) {
+          const formText = form.textContent.toLowerCase();
+          if (formText.includes('equal employment') || 
+              formText.includes('eeo') ||
+              formText.includes('gender') ||
+              formText.includes('ethnicity')) {
+            return form;
+          }
+        }
+        
+        // If no EEO found yet, return the main form anyway - we'll scan it later
+        const mainForm = document.querySelector('form');
+        return mainForm;
+      },
+      
+      // EEO field configurations for Lever
+      eeoFields: {
+        gender: {
+          names: ['eeo[gender]'],
+          labelPatterns: ['gender', 'gender identity'],
+          selectors: ['select[name*="gender"]', 'input[name*="gender"]']
+        },
+        race: {
+          names: ['eeo[race]'],
+          labelPatterns: ['ethnicity', 'race', 'racial'],
+          selectors: ['select[name*="ethnicity"]', 'select[name*="race"]', 'input[name*="ethnicity"]']
+        },
+        veteran: {
+          names: ['eeo[veteran]'],
+          labelPatterns: ['veteran', 'veteran status'],
+          selectors: ['select[name*="veteran"]', 'input[name*="veteran"]']
+        },
+        disability: {
+          names: ['eeo[disability]'],
+          labelPatterns: ['disability', 'disabled', 'handicap'],
+          selectors: ['select[name*="disability"]', 'input[name*="disability"]']
+        }
+      },
+      
+      // Value mapping for Lever-specific options
+      valueMapping: {
+        gender: {
+          'male': ['male', 'man'],
+          'female': ['female', 'woman'],
+          'non-binary': ['non-binary', 'nonbinary', 'genderqueer'],
+          '': ['prefer not to say', 'declined', 'not disclosed']
+        },
+        race: {
+          'white': ['white', 'caucasian'],
+          'black': ['black', 'african american'],
+          'hispanic': ['hispanic', 'latino', 'latina'],
+          'asian': ['asian'],
+          'native': ['american indian', 'alaska native'],
+          'pacific': ['pacific islander', 'hawaiian'],
+          'multiracial': ['multiracial', 'two or more', 'multiple'],
+          '': ['prefer not to say', 'declined', 'not disclosed']
+        },
+        veteran: {
+          'not-protected': ['not a protected veteran', 'not protected', 'not a veteran'],
+          'protected': ['protected veteran'],
+          'disabled': ['disabled veteran', 'disabled']
+        },
+        disability: {
+          'no': ['no', 'no i do not'],
+          'yes': ['yes', 'i have a disability'],
+          'maybe': ['maybe', 'not sure']
+        }
+      }
+    },
+
+    // ---------------------------------------------------------------------
+    // Workday Handler (for companies using Workday)
+    // ---------------------------------------------------------------------
+    'workday.com': {
+      name: 'Workday',
+      detectForm: function() {
+        // Workday uses specific form structures
+        const isApplicationPage = document.querySelector('[data-automationid*="Application"]');
+        if (!isApplicationPage) return null;
+        
+        return document.querySelector('form');
+      },
+      
+      eeoFields: {
+        gender: {
+          names: ['gender', 'Gender'],
+          labelPatterns: ['gender'],
+          selectors: ['select[data-automationid*="gender"]']
+        },
+        race: {
+          names: ['ethnicity', 'Race'],
+          labelPatterns: ['ethnicity', 'race'],
+          selectors: ['select[data-automationid*="ethnicity"]']
+        },
+        veteran: {
+          names: ['veteranStatus', 'VeteranStatus'],
+          labelPatterns: ['veteran'],
+          selectors: ['select[data-automationid*="veteran"]']
+        },
+        disability: {
+          names: ['disabilityStatus', 'DisabilityStatus'],
+          labelPatterns: ['disability'],
+          selectors: ['select[data-automationid*="disability"]']
+        }
+      },
+      
+      valueMapping: {
+        gender: { 'male': ['Male'], 'female': ['Female'], '': ['Prefer not to'] },
+        race: { 'white': ['White'], 'black': ['Black'], 'hispanic': ['Hispanic'], '': ['Prefer not to'] },
+        veteran: { 'not-protected': ['I am not a protected veteran'], 'protected': ['Protected veteran'], 'disabled': ['Disabled veteran'] },
+        disability: { 'no': ['No'], 'yes': ['Yes'], 'maybe': ['Maybe'] }
+      }
+    }
   };
 
-  // Value mappings for EEO fields
-  const EEO_VALUES = {
+  // ============================================================================
+  // Base EEO Auto-fill Logic
+  // ============================================================================
+
+  // Value mapping for default fallback
+  const DEFAULT_VALUE_MAPPINGS = {
     gender: {
-      'male': ['male', 'man', 'm'],
-      'female': ['female', 'woman', 'f'],
-      'non-binary': ['non-binary', 'nonbinary', 'non binary', 'other'],
-      '': ['prefer not to say', 'declined', '']
+      'male': ['male', 'man'],
+      'female': ['female', 'woman'],
+      'non-binary': ['non-binary', 'nonbinary'],
+      '': ['prefer not to say', 'declined', 'not disclosed']
     },
     race: {
       'white': ['white', 'caucasian'],
-      'black': ['black', 'african american', 'african-american'],
-      'hispanic': ['hispanic', 'latino', 'latina', 'latin'],
-      'asian': ['asian', 'asian american'],
-      'native': ['american indian', 'alaska native', 'native american'],
-      'pacific': ['pacific islander', 'hawaiian', 'native hawaiian'],
-      'multiracial': ['multiracial', 'two or more', 'multiple'],
-      '': ['prefer not to say', 'declined', '']
+      'black': ['black', 'african american'],
+      'hispanic': ['hispanic', 'latino'],
+      'asian': ['asian'],
+      'native': ['american indian'],
+      'pacific': ['pacific islander'],
+      'multiracial': ['multiracial', 'two or more'],
+      '': ['prefer not to say', 'declined']
     },
     veteran: {
-      'not-protected': ['not a protected veteran', 'not protected', 'no', 'none'],
-      'protected': ['protected veteran', 'protected'],
-      'disabled': ['disabled veteran', 'disabled', 'i identify as disabled']
+      'not-protected': ['not protected', 'not a protected'],
+      'protected': ['protected'],
+      'disabled': ['disabled']
     },
     disability: {
-      'no': ['no', 'no i do not', 'no, i dont'],
-      'yes': ['yes', 'yes i have', 'yes, i have'],
-      'maybe': ['maybe', 'not sure', 'uncertain']
+      'no': ['no', 'do not have'],
+      'yes': ['yes', 'have a'],
+      'maybe': ['maybe', 'not sure']
     }
+  };
+
+  // Settings key mapping
+  const SETTING_KEY_MAP = {
+    'male': 'gender', 'female': 'gender', 'non-binary': 'gender',
+    'white': 'race', 'black': 'race', 'hispanic': 'race',
+    'asian': 'race', 'native': 'race', 'pacific': 'race', 'multiracial': 'race',
+    'not-protected': 'veteran', 'protected': 'veteran', 'disabled': 'veteran',
+    'no': 'disability', 'yes': 'disability', 'maybe': 'disability'
   };
 
   let settings = null;
   let isFilled = false;
+  let currentHandler = null;
 
-  // Initialize the content script
+  // ============================================================================
+  // Initialization
+  // ============================================================================
+
   async function init() {
-    console.log('Job Autofill: Checking for EEO form on lever.co...');
+    console.log('Job Autofill: Starting...');
     
-    // Load settings from storage
+    // Detect which website handler to use
+    currentHandler = detectWebsiteHandler();
+    
+    if (!currentHandler) {
+      console.log('Job Autofill: No matching handler found for this website');
+      return;
+    }
+    
+    console.log(`Job Autofill: Using handler for ${currentHandler.name}`);
+    
+    // Load settings
     await loadSettings();
     
     if (!settings) {
@@ -95,12 +214,30 @@
       return;
     }
 
-    // Wait for the page to be fully loaded
+    // Start form detection
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', onPageReady);
     } else {
       onPageReady();
     }
+  }
+
+  function detectWebsiteHandler() {
+    const hostname = window.location.hostname.toLowerCase();
+    
+    for (const [domain, handler] of Object.entries(websiteHandlers)) {
+      if (hostname.includes(domain.replace('.', ''))) {
+        return handler;
+      }
+      
+      // Also check for partial matches (e.g., jobs.lever.co -> lever.co)
+      if (hostname.includes(domain) || hostname.endsWith('.' + domain)) {
+        return handler;
+      }
+    }
+    
+    // Default to generic handler if no specific one found
+    return null;
   }
 
   async function loadSettings() {
@@ -113,95 +250,278 @@
   }
 
   function onPageReady() {
-    // Give extra time for dynamic content to load
-    setTimeout(() => {
-      detectAndFillEEOForm();
-    }, 1500);
+    // Initial scan after page loads
+    setTimeout(() => detectAndFillForm(), 1000);
+    
+    // Also observe for dynamic content
+    observeForForm();
   }
 
-  // Main function to detect and fill EEO form
-  function detectAndFillEEOForm() {
-    if (isFilled) return;
+  // ============================================================================
+  // Form Detection & Filling
+  // ============================================================================
 
-    // Look for EEO form sections
-    const eeoForm = findEEOForm();
+  function detectAndFillForm() {
+    if (isFilled || !currentHandler) return;
+
+    const form = currentHandler.detectForm();
     
-    if (eeoForm) {
-      console.log('Job Autofill: Found EEO form, attempting to fill...');
-      fillEEOForm(eeoForm);
+    if (form) {
+      console.log('Job Autofill: Found form, attempting to fill...');
+      fillForm(form);
     } else {
-      console.log('Job Autofill: No EEO form detected on this page');
-      // Check if we're on an application page
-      checkForApplicationForm();
+      console.log('Job Autofill: No form detected');
     }
   }
 
-  // Find the EEO form on the page
-  function findEEOForm() {
-    // Look for common EEO section indicators
-    const eeoIndicators = [
-      'section[data-eeo]',
-      '.eeo-section',
-      '[class*="eeo"]',
-      '[id*="eeo"]',
-      'fieldset:contains("EEO")',
-      'legend:contains("EEO")',
-      'h2:contains("EEO")',
-      'h3:contains("EEO")'
-    ];
+  function fillForm(form) {
+    if (!settings || isFilled) return;
 
-    // Try to find form elements within EEO sections
-    const forms = document.querySelectorAll('form');
+    let filledCount = 0;
+    const fieldConfigs = currentHandler.eeoFields;
     
-    for (const form of forms) {
-      const formText = form.textContent.toLowerCase();
-      
-      // Check if this form contains EEO-related content
-      if (formText.includes('equal employment opportunity') ||
-          formText.includes('eeo') ||
-          formText.includes('gender') ||
-          formText.includes('ethnicity') ||
-          formText.includes('veteran') ||
-          formText.includes('disability')) {
-        return form;
+    // Fill each EEO field type
+    if (settings.gender && fieldConfigs.gender) {
+      if (fillField(form, fieldConfigs.gender, settings.gender)) {
+        console.log('Job Autofill: Filled gender');
+        filledCount++;
+      }
+    }
+    
+    if (settings.race && fieldConfigs.race) {
+      if (fillField(form, fieldConfigs.race, settings.race)) {
+        console.log('Job Autofill: Filled race/ethnicity');
+        filledCount++;
+      }
+    }
+    
+    if (settings.veteran && fieldConfigs.veteran) {
+      if (fillField(form, fieldConfigs.veteran, settings.veteran)) {
+        console.log('Job Autofill: Filled veteran status');
+        filledCount++;
+      }
+    }
+    
+    if (settings.disability && fieldConfigs.disability) {
+      if (fillField(form, fieldConfigs.disability, settings.disability)) {
+        console.log('Job Autofill: Filled disability status');
+        filledCount++;
       }
     }
 
-    // Try to find by input names commonly used in EEO forms
-    const eeoInputs = document.querySelectorAll('select[name="gender"], select[name="ethnicity"], select[name="veteran"], select[name="disability"]');
-    
-    if (eeoInputs.length > 0) {
-      // Find the parent form
-      return eeoInputs[0].closest('form');
+    if (filledCount > 0) {
+      console.log(`Job Autofill: Filled ${filledCount} EEO fields`);
+      isFilled = true;
+      showNotification(`✓ Auto-filled ${filledCount} EEO field(s) for ${currentHandler.name}!`);
     }
+  }
 
+  function fillField(form, config, value) {
+    // Try by name attributes
+    for (const name of config.names) {
+      // Try select
+      let field = form.querySelector(`select[name="${name}"], select[name*="${name}"]`);
+      if (field && fillSelectField(field, value)) return true;
+      
+      // Try input
+      field = form.querySelector(`input[name="${name}"], input[name*="${name}"]`);
+      if (field && fillInputField(field, value)) return true;
+    }
+    
+    // Try by explicit selectors
+    for (const selector of config.selectors) {
+      const field = form.querySelector(selector);
+      if (field) {
+        if (field.tagName === 'SELECT') {
+          if (fillSelectField(field, value)) return true;
+        } else {
+          if (fillInputField(field, value)) return true;
+        }
+      }
+    }
+    
+    // Try by label association
+    const labelField = findFieldByLabel(form, config.labelPatterns);
+    if (labelField) {
+      if (labelField.tagName === 'SELECT') {
+        return fillSelectField(labelField, value);
+      } else if (labelField.type === 'radio') {
+        return fillRadioGroup(form.querySelectorAll(`input[name="${labelField.name}"]`), value);
+      }
+    }
+    
+    return false;
+  }
+
+  function findFieldByLabel(form, labelPatterns) {
+    const labels = form.querySelectorAll('label, [class*="label"], [class*="Label"]');
+    
+    for (const label of labels) {
+      const labelText = label.textContent.toLowerCase();
+      
+      for (const pattern of labelPatterns) {
+        if (labelText.includes(pattern)) {
+          // Check for associated input
+          const forAttr = label.getAttribute('for');
+          if (forAttr) {
+            const field = form.querySelector(`#${forAttr}`);
+            if (field) return field;
+          }
+          
+          // Check nested input
+          const nested = label.querySelector('input, select');
+          if (nested) return nested;
+          
+          // Check sibling
+          const sibling = label.nextElementSibling;
+          if (sibling && (sibling.tagName === 'INPUT' || sibling.tagName === 'SELECT')) {
+            return sibling;
+          }
+        }
+      }
+    }
+    
     return null;
   }
 
-  // Check if we're on an application form page
-  function checkForApplicationForm() {
-    // Look for the application form which might have EEO as a later step
-    const applicationContainer = document.querySelector('[data-apply]') || 
-                                  document.querySelector('.application-form') ||
-                                  document.querySelector('#application-form');
+  function fillSelectField(selectElement, value) {
+    if (!selectElement) return false;
     
-    if (applicationContainer) {
-      // Set up a mutation observer to detect when EEO form appears
-      observeForEEOForm();
+    const options = selectElement.querySelectorAll('option');
+    const valueMap = currentHandler?.valueMapping || DEFAULT_VALUE_MAPPINGS;
+    const key = SETTING_KEY_MAP[value] || '';
+    const mappings = valueMap[key]?.[value] || valueMap[key] || [];
+    
+    for (const option of options) {
+      const optionText = option.textContent.toLowerCase().trim();
+      const optionValue = option.value.toLowerCase().trim();
+      
+      // Exact value match
+      if (optionValue === value) {
+        selectElement.value = option.value;
+        triggerChangeEvent(selectElement);
+        return true;
+      }
+      
+      // Text match via mapping
+      for (const mapValue of mappings) {
+        if (optionText.includes(mapValue)) {
+          selectElement.value = option.value;
+          triggerChangeEvent(selectElement);
+          return true;
+        }
+      }
     }
+    
+    // Default to "prefer not to say" option
+    for (const option of options) {
+      const optText = option.textContent.toLowerCase();
+      if (optText.includes('prefer not') || optText.includes('declined')) {
+        selectElement.value = option.value;
+        triggerChangeEvent(selectElement);
+        return true;
+      }
+    }
+    
+    return false;
   }
 
-  // Observe for EEO form appearing dynamically
-  function observeForEEOForm() {
+  function fillInputField(inputElement, value) {
+    if (!inputElement) return false;
+    
+    inputElement.value = value;
+    triggerChangeEvent(inputElement);
+    return true;
+  }
+
+  function fillRadioGroup(radios, value) {
+    if (!radios || radios.length === 0) return false;
+    
+    const valueMap = currentHandler?.valueMapping || DEFAULT_VALUE_MAPPINGS;
+    const key = SETTING_KEY_MAP[value] || '';
+    const mappings = valueMap[key]?.[key] || valueMap[key] || [];
+    
+    for (const radio of radios) {
+      const label = document.querySelector(`label[for="${radio.id}"]`) || 
+                   radio.closest('label') ||
+                   radio.parentElement;
+      
+      if (label) {
+        const labelText = label.textContent.toLowerCase();
+        
+        for (const mapValue of mappings) {
+          if (labelText.includes(mapValue)) {
+            radio.checked = true;
+            triggerChangeEvent(radio);
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  function triggerChangeEvent(element) {
+    ['change', 'input', 'blur'].forEach(eventType => {
+      element.dispatchEvent(new Event(eventType, { bubbles: true }));
+    });
+  }
+
+  function showNotification(message) {
+    const existing = document.querySelector('.job-autofill-notification');
+    if (existing) existing.remove();
+    
+    const notification = document.createElement('div');
+    notification.className = 'job-autofill-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #4a90d9, #357abd);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(74, 144, 217, 0.4);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      animation: slideInRight 0.3s ease;
+    `;
+    notification.textContent = message;
+    
+    if (!document.getElementById('job-autofill-styles')) {
+      const style = document.createElement('style');
+      style.id = 'job-autofill-styles';
+      style.textContent = `@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }`;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.animation = 'slideInRight 0.3s ease reverse';
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  }
+
+  function observeForForm() {
     const observer = new MutationObserver((mutations) => {
+      if (isFilled) {
+        observer.disconnect();
+        return;
+      }
+      
       for (const mutation of mutations) {
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              const text = node.textContent?.toLowerCase() || '';
-              if (text.includes('eeo') || text.includes('equal employment')) {
-                setTimeout(() => detectAndFillEEOForm(), 500);
-                observer.disconnect();
+              const text = (node.textContent || '').toLowerCase();
+              
+              if (text.includes('equal employment') || 
+                  text.includes('gender') && text.includes('select')) {
+                setTimeout(() => detectAndFillForm(), 500);
                 return;
               }
             }
@@ -210,213 +530,34 @@
       }
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    // Stop observing after 30 seconds
-    setTimeout(() => observer.disconnect(), 30000);
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 60000);
   }
 
-  // Fill the EEO form with saved settings
-  function fillEEOForm(form) {
-    if (!settings || isFilled) return;
+  // ============================================================================
+  // Message Handling
+  // ============================================================================
 
-    let filledCount = 0;
-
-    // Try to fill gender
-    if (settings.gender) {
-      if (fillField(form, 'gender', settings.gender)) filledCount++;
-    }
-
-    // Try to fill race/ethnicity
-    if (settings.race) {
-      if (fillField(form, 'ethnicity', settings.race)) filledCount++;
-    }
-
-    // Try to fill veteran status
-    if (settings.veteran) {
-      if (fillField(form, 'veteran', settings.veteran)) filledCount++;
-    }
-
-    // Try to fill disability status
-    if (settings.disability) {
-      if (fillField(form, 'disability', settings.disability)) filledCount++;
-    }
-
-    if (filledCount > 0) {
-      console.log(`Job Autofill: Filled ${filledCount} EEO fields`);
-      isFilled = true;
-      
-      // Show a notification that EEO was filled
-      showNotification();
-    }
-  }
-
-  // Fill a specific field type
-  function fillField(form, fieldType, value) {
-    const selectors = EEO_FIELD_MAPPINGS[fieldType] || [];
-    
-    for (const selector of selectors) {
-      const field = form.querySelector(selector);
-      
-      if (field) {
-        console.log(`Job Autofill: Found ${fieldType} field:`, field);
-        
-        // Try to find matching option
-        if (fillSelectField(field, value)) {
-          return true;
-        }
-      }
-    }
-
-    // If specific selectors didn't work, try to find by name
-    const fieldsByName = form.querySelectorAll(`select[name="${fieldType}"], select[name*="${fieldType}"]`);
-    for (const field of fieldsByName) {
-      if (fillSelectField(field, value)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  // Fill a select field by finding the matching option
-  function fillSelectField(selectElement, value) {
-    if (!selectElement) return false;
-
-    const options = selectElement.querySelectorAll('option');
-    const valueMap = EEO_VALUES[getFieldKey(value)] || {};
-    
-    // First try exact match
-    for (const option of options) {
-      const optionValue = option.value.toLowerCase().trim();
-      const optionText = option.textContent.toLowerCase().trim();
-      
-      // Check if this option matches our value
-      if (optionValue === value || optionText.includes(value.toLowerCase())) {
-        selectElement.value = option.value;
-        triggerChangeEvent(selectElement);
-        console.log(`Job Autofill: Filled with value: ${option.value}`);
-        return true;
-      }
-      
-      // Check if value matches the option text (for "prefer not to say" cases)
-      const mapping = valueMap[value];
-      if (mapping) {
-        for (const mapValue of mapping) {
-          if (optionText.includes(mapValue) || optionValue.includes(mapValue)) {
-            selectElement.value = option.value;
-            triggerChangeEvent(selectElement);
-            console.log(`Job Autofill: Filled with mapped value: ${option.value}`);
-            return true;
-          }
-        }
-      }
-    }
-
-    // Try to find a "prefer not to say" option if no specific value
-    if (!value || value === '') {
-      for (const option of options) {
-        const optionText = option.textContent.toLowerCase();
-        if (optionText.includes('prefer not to say') || 
-            optionText.includes('declined') ||
-            optionText.includes('do not wish')) {
-          selectElement.value = option.value;
-          triggerChangeEvent(selectElement);
-          console.log(`Job Autofill: Filled with default: ${option.value}`);
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  // Get the key for value mapping
-  function getFieldKey(value) {
-    // Map form values to mapping keys
-    const keyMap = {
-      'male': 'male',
-      'female': 'female',
-      'non-binary': 'non-binary',
-      'white': 'white',
-      'black': 'black',
-      'hispanic': 'hispanic',
-      'asian': 'asian',
-      'native': 'native',
-      'pacific': 'pacific',
-      'multiracial': 'multiracial',
-      'not-protected': 'not-protected',
-      'protected': 'protected',
-      'disabled': 'disabled',
-      'no': 'no',
-      'yes': 'yes',
-      'maybe': 'maybe'
-    };
-    return keyMap[value] || '';
-  }
-
-  // Trigger change event for React/Angular form handling
-  function triggerChangeEvent(element) {
-    const event = new Event('change', { bubbles: true });
-    element.dispatchEvent(event);
-    
-    // Also dispatch input event for some frameworks
-    const inputEvent = new Event('input', { bubbles: true });
-    element.dispatchEvent(inputEvent);
-  }
-
-  // Show notification that EEO was filled
-  function showNotification() {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #4a90d9;
-      color: white;
-      padding: 15px 20px;
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      z-index: 999999;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 14px;
-      animation: slideIn 0.3s ease;
-    `;
-    notification.textContent = '✓ EEO Form Auto-filled!';
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-      notification.style.animation = 'slideIn 0.3s ease reverse';
-      setTimeout(() => notification.remove(), 300);
-    }, 3000);
-  }
-
-  // Listen for messages from popup (to manually trigger fill)
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'fillEEO') {
+      isFilled = false;
       loadSettings().then(() => {
-        detectAndFillEEOForm();
+        detectAndFillForm();
         sendResponse({ success: true });
+      });
+      return true;
+    }
+    
+    if (message.action === 'getStatus') {
+      sendResponse({ 
+        isFilled: isFilled, 
+        hasSettings: !!settings,
+        handler: currentHandler?.name || 'unknown'
       });
       return true;
     }
   });
 
-  // Initialize when script loads
+  // Initialize
   init();
 })();

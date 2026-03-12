@@ -2,14 +2,15 @@
   "manifest_version": 3,
   "name": "Job Application Autofill",
   "version": "1.0.0",
-  "description": "Auto-complete job application forms including EEO forms on lever.co",
+  "description": "Auto-complete job application forms including EEO forms on job posting websites",
   "permissions": [
     "storage",
     "activeTab",
     "scripting"
   ],
   "host_permissions": [
-    "*://*.lever.co/*"
+    "*://*.lever.co/*",
+    "*://*.workday.com/*"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -19,7 +20,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.lever.co/*"],
+      "matches": [
+        "*://*.lever.co/*",
+        "*://*.workday.com/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
