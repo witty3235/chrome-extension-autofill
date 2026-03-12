@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Autofill Settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      min-width: 400px;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #4a90d9;
+    }
+
+    h2 {
+      font-size: 14px;
+      color: #666;
+      margin: 20px 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #4a90d9;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .checkbox-item label {
+      margin: 0;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    .section {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-save {
+      background: #4a90d9;
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: #357abd;
+    }
+
+    .btn-clear {
+      background: #e74c3c;
+      color: white;
+    }
+
+    .btn-clear:hover {
+      background: #c0392b;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
+
+    .status.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .info {
+      font-size: 12px;
+      color: #888;
+      margin-top: 15px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Job Application Autofill</h1>
+
+  <form id="settingsForm">
+    <!-- Personal Information -->
+    <h2>Personal Information</h2>
+    <div class="section">
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" name="firstName" placeholder="John">
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name</label>
+        <input type="text" id="lastName" name="lastName" placeholder="Doe">
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="john.doe@example.com">
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567">
+      </div>
+    </div>
+
+    <!-- EEO Information -->
+    <h2>EEO Information</h2>
+    <div class="section">
+      <div class="form-group">
+        <label for="gender">Gender</label>
+        <select id="gender" name="gender">
+          <option value="">Prefer not to say</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="non-binary">Non-binary</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="race">Race/Ethnicity</label>
+        <select id="race" name="race">
+          <option value="">Prefer not to say</option>
+          <option value="white">White/Caucasian</option>
+          <option value="black">Black or African American</option>
+          <option value="hispanic">Hispanic or Latino</option>
+          <option value="asian">Asian</option>
+          <option value="native">American Indian or Alaska Native</option>
+          <option value="pacific">Native Hawaiian or Pacific Islander</option>
+          <option value="multiracial">Two or More Races</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="veteran">Veteran Status</label>
+        <select id="veteran" name="veteran">
+          <option value="">Prefer not to say</option>
+          <option value="not-protected">I am not a protected veteran</option>
+          <option value="protected">I am a protected veteran</option>
+          <option value="disabled">I identify as a disabled veteran</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="disability">Disability Status</label>
+        <select id="disability" name="disability">
+          <option value="">Prefer not to say</option>
+          <option value="no">No, I don't have a disability</option>
+          <option value="yes">Yes, I have a disability</option>
+          <option value="maybe">Maybe, I have a disability but not sure</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Additional Information -->
+    <h2>Additional Information</h2>
+    <div class="section">
+      <div class="form-group">
+        <label for="linkedin">LinkedIn URL</label>
+        <input type="text" id="linkedin" name="linkedin" placeholder="https://linkedin.com/in/username">
+      </div>
+      <div class="form-group">
+        <label for="github">GitHub URL</label>
+        <input type="text" id="github" name="github" placeholder="https://github.com/username">
+      </div>
+      <div class="form-group">
+        <label for="website">Personal Website</label>
+        <input type="text" id="website" name="website" placeholder="https://yourwebsite.com">
+      </div>
+      <div class="form-group">
+        <label for="location">Location (City, State)</label>
+        <input type="text" id="location" name="location" placeholder="San Francisco, CA">
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button type="submit" class="btn-save">Save Settings</button>
+      <button type="button" class="btn-clear" id="clearBtn">Clear All</button>
+    </div>
+    <div id="status" class="status"></div>
+    <p class="info">Settings are saved automatically to your browser</p>
+  </form>
+  <script src="popup.js"></script>
+</body>
+</html>

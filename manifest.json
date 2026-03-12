@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Job Application Autofill",
+  "version": "1.0.0",
+  "description": "Auto-complete job application forms including EEO forms on lever.co",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.lever.co/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.lever.co/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
