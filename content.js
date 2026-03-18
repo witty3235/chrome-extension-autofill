@@ -352,6 +352,9 @@
     
     // Also observe for dynamic content
     observeForForm();
+    
+    // Create floating action button for manual trigger
+    createFloatingButton();
   }
 
   // ============================================================================
@@ -669,6 +672,56 @@
       notification.style.animation = 'slideInRight 0.3s ease reverse';
       setTimeout(() => notification.remove(), 300);
     }, 4000);
+  }
+
+  // ============================================================================
+  // Floating Action Button
+  // ============================================================================
+
+  function createFloatingButton() {
+    // Check if button already exists
+    if (document.getElementById('job-autofill-fab')) return;
+    
+    const button = document.createElement('button');
+    button.id = 'job-autofill-fab';
+    button.innerHTML = '&#x2728;'; // Sparkle icon
+    button.title = 'Auto-fill job application';
+    button.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #4a90d9, #357abd);
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(74, 144, 217, 0.4);
+      z-index: 999998;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'scale(1.1)';
+      button.style.boxShadow = '0 6px 20px rgba(74, 144, 217, 0.5)';
+    });
+    
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'scale(1)';
+      button.style.boxShadow = '0 4px 15px rgba(74, 144, 217, 0.4)';
+    });
+    
+    button.addEventListener('click', () => {
+      isFilled = false;
+      detectAndFillForm();
+    });
+    
+    document.body.appendChild(button);
   }
 
   function observeForForm() {
