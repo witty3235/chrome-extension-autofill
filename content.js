@@ -139,6 +139,103 @@
         veteran: { 'not-protected': ['I am not a protected veteran'], 'protected': ['Protected veteran'], 'disabled': ['Disabled veteran'] },
         disability: { 'no': ['No'], 'yes': ['Yes'], 'maybe': ['Maybe'] }
       }
+    },
+
+    // --------------------------------------------------------------------- Ashbyhq.com Handler
+    // ---------------------------------------------------------------------
+    'jobs.ashbyhq.com': {
+      name: 'Ashby',
+      detectForm: function() {
+        // Ashby application URLs follow pattern: jobs.ashbyhq.com/[company]/[jobUuid]/application
+        const isApplicationPage = window.location.href.includes('/application') ||
+                                   document.querySelector('[data-ashby-application]') ||
+                                   document.querySelector('.ashby-application-form') ||
+                                   document.querySelector('form[action*="application"]');
+        
+        if (!isApplicationPage) return null;
+        
+        // Look for the main application form
+        const forms = document.querySelectorAll('.ashby-application-form-container');       
+        return forms[0] || null;
+      },
+
+      // EEO field configurations for Ashby - rely on label matching since names are random
+      eeoFields: {
+        gender: {
+          names: [],
+          labelPatterns: ['gender', 'gender identity'],
+          selectors: []
+        },
+        race: {
+          names: [],
+          labelPatterns: ['ethnicity', 'race', 'racial'],
+          selectors: []
+        },
+        veteran: {
+          names: [],
+          labelPatterns: ['veteran', 'veteran status'],
+          selectors: []
+        },
+        disability: {
+          names: [],
+          labelPatterns: ['disability', 'disabled'],
+          selectors: []
+        }
+      },
+
+      // General field configurations for Ashby - rely on label matching
+      generalFields: {
+        linkedin: {
+          names: [],
+          labelPatterns: ['linkedin', 'linked in', 'linkedin url', 'linkedin profile'],
+          selectors: []
+        },
+        github: {
+          names: [],
+          labelPatterns: ['github', 'git hub', 'github url', 'github profile'],
+          selectors: []
+        },
+        website: {
+          names: [],
+          labelPatterns: ['website', 'personal website', 'portfolio', 'personal site', 'personal website url'],
+          selectors: []
+        },
+        location: {
+          names: [],
+          labelPatterns: ['location', 'city', 'address', 'where are you located', 'your location'],
+          selectors: []
+        }
+      },
+
+      // Ashby uses its own dropdown values - these are common options
+      valueMapping: {
+        gender: {
+          'male': ['male', 'man'],
+          'female': ['female', 'woman'],
+          'non-binary': ['non-binary', 'nonbinary'],
+          '': ['prefer not to say', 'declined', 'not disclosed', 'prefer not to', 'skip']
+        },
+        race: {
+          'white': ['white', 'caucasian'],
+          'black': ['black', 'african american', 'african-american'],
+          'hispanic': ['hispanic', 'latino', 'latina'],
+          'asian': ['asian'],
+          'native': ['american indian', 'alaska native', 'native american'],
+          'pacific': ['pacific islander', 'hawaiian'],
+          'multiracial': ['multiracial', 'two or more', 'multiple', 'two or more races'],
+          '': ['prefer not to say', 'declined', 'not disclosed', 'prefer not to', 'skip']
+        },
+        veteran: {
+          'not-protected': ['not protected', 'not a protected veteran', 'i am not a protected veteran', 'no'],
+          'protected': ['protected veteran', 'i am a protected veteran', 'yes'],
+          'disabled': ['disabled veteran', 'i identify as a disabled veteran']
+        },
+        disability: {
+          'no': ['no', 'no i do not', 'i do not have a disability', 'false'],
+          'yes': ['yes', 'i have a disability', 'i have a disability or have ever had a disability', 'true'],
+          'maybe': ['maybe', 'not sure', 'maybe, have a disability but not sure']
+        }
+      }
     }
   };
 
@@ -309,10 +406,42 @@
       }
     }
 
+    // Fill general fields (LinkedIn, GitHub, Website, Location)
+    const generalConfigs = currentHandler.generalFields;
+    if (generalConfigs) {
+      if (settings.linkedin && generalConfigs.linkedin) {
+        if (fillGeneralField(form, generalConfigs.linkedin, settings.linkedin)) {
+          console.log('Job Autofill: Filled LinkedIn');
+          filledCount++;
+        }
+      }
+
+      if (settings.github && generalConfigs.github) {
+        if (fillGeneralField(form, generalConfigs.github, settings.github)) {
+          console.log('Job Autofill: Filled GitHub');
+          filledCount++;
+        }
+      }
+
+      if (settings.website && generalConfigs.website) {
+        if (fillGeneralField(form, generalConfigs.website, settings.website)) {
+          console.log('Job Autofill: Filled Website');
+          filledCount++;
+        }
+      }
+
+      if (settings.location && generalConfigs.location) {
+        if (fillGeneralField(form, generalConfigs.location, settings.location)) {
+          console.log('Job Autofill: Filled Location');
+          filledCount++;
+        }
+      }
+    }
+
     if (filledCount > 0) {
-      console.log(`Job Autofill: Filled ${filledCount} EEO fields`);
+      console.log(`Job Autofill: Filled ${filledCount} field(s)`);
       isFilled = true;
-      showNotification(`✓ Auto-filled ${filledCount} EEO field(s) for ${currentHandler.name}!`);
+      showNotification(`✓ Auto-filled ${filledCount} field(s) for ${currentHandler.name}!`);
     }
   }
 
@@ -353,29 +482,65 @@
     return false;
   }
 
-  function findFieldByLabel(form, labelPatterns) {
-    const labels = form.querySelectorAll('label, [class*="label"], [class*="Label"]');
+  function fillGeneralField(form, config, value) {
+    if (!value) return false;
     
-    for (const label of labels) {
+    // Try by name attributes
+    for (const name of config.names) {
+      let field = form.querySelector(`input[name="${name}"], input[name*="${name}"]`);
+      if (field && fillInputField(field, value)) return true;
+    }
+    
+    // Try by explicit selectors
+    for (const selector of config.selectors) {
+      const field = form.querySelector(selector);
+      if (field && fillInputField(field, value)) return true;
+    }
+    
+    // Try by label association
+    const labelField = findFieldByLabel(form, config.labelPatterns);
+    if (labelField) {
+      return fillInputField(labelField, value);
+    }
+    
+    return false;
+  }
+
+  function findFieldByLabel(form, labelPatterns) {
+    // Search for labels within the entire document (not just within form)
+    // since Ashby may have labels outside the form element
+    const allLabels = document.querySelectorAll('label');
+    
+    for (const label of allLabels) {
       const labelText = label.textContent.toLowerCase();
       
       for (const pattern of labelPatterns) {
         if (labelText.includes(pattern)) {
-          // Check for associated input
+          // Check for associated input via "for" attribute
           const forAttr = label.getAttribute('for');
           if (forAttr) {
-            const field = form.querySelector(`#${forAttr}`);
-            if (field) return field;
+            // Search in entire document for the id
+            const field = document.getElementById(forAttr) || document.querySelector(`[name=${forAttr}]`);
+            if (field && (field.tagName === 'INPUT' || field.tagName === 'SELECT' || field.tagName === 'TEXTAREA')) {
+              return field;
+            }
           }
           
-          // Check nested input
-          const nested = label.querySelector('input, select');
+          // Check nested input/select/textarea
+          const nested = label.querySelector('input, select, textarea');
           if (nested) return nested;
           
-          // Check sibling
+          // Check immediate next sibling
           const sibling = label.nextElementSibling;
-          if (sibling && (sibling.tagName === 'INPUT' || sibling.tagName === 'SELECT')) {
+          if (sibling && (sibling.tagName === 'INPUT' || sibling.tagName === 'SELECT' || sibling.tagName === 'TEXTAREA')) {
             return sibling;
+          }
+          
+          // Check for input inside adjacent div/wrapper
+          const wrapperNext = label.nextElementSibling;
+          if (wrapperNext) {
+            const wrapperInput = wrapperNext.querySelector('input, select, textarea');
+            if (wrapperInput) return wrapperInput;
           }
         }
       }

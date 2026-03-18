@@ -10,7 +10,8 @@
   ],
   "host_permissions": [
     "*://*.lever.co/*",
-    "*://*.workday.com/*"
+    "*://*.workday.com/*",
+    "*://jobs.ashbyhq.com/*"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -22,7 +23,8 @@
     {
       "matches": [
         "*://*.lever.co/*",
-        "*://*.workday.com/*"
+        "*://*.workday.com/*",
+        "*://jobs.ashbyhq.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
