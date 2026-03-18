@@ -523,7 +523,7 @@
           const forAttr = label.getAttribute('for');
           if (forAttr) {
             // Search in entire document for the id
-            const field = document.getElementById(forAttr) || document.querySelector(`[name=${forAttr}]`);
+            const field = document.getElementById(forAttr) || document.querySelector(`[name="${forAttr}"]`);
             if (field && (field.tagName === 'INPUT' || field.tagName === 'SELECT' || field.tagName === 'TEXTAREA')) {
               return field;
             }
